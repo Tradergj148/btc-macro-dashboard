@@ -1,6 +1,14 @@
-"""Composite Regime Score — blends all 5 layers, maps to bias label."""
+"""Composite Regime Score — blends all 5 layers, maps to bias label.
+
+Position sizing recognises BTC's structural up-drift:
+- Default 60% long in NEUTRAL (vs 10% in v0.1)
+- Lever up to ~1.5x in strong bullish regime
+- Stay flat in mild bearish (avoid fighting trend)
+- Only mildly short in clear bearish (BTC has historically punished outright shorts)
+"""
 from __future__ import annotations
 
+import math
 import pandas as pd
 
 
@@ -14,10 +22,10 @@ def composite_score(
 ) -> pd.Series:
     df = pd.concat(
         {
-            "macro": macro,
+            "macro":      macro,
             "risk_curve": risk_curve,
-            "micro": micro,
-            "leadlag": leadlag,
+            "micro":      micro,
+            "leadlag":    leadlag,
         },
         axis=1,
     ).ffill()
@@ -41,9 +49,10 @@ def label_bias(score_value: float) -> str:
 
 
 def position_sizing(score_value: float) -> float:
-    """Map regime score to a [-1, 1] BTC position weight (long/short fraction)."""
-    if score_value > 0.5:    return 1.00
-    if score_value > 0.2:    return 0.60
-    if score_value > -0.2:   return 0.10
-    if score_value > -0.5:   return -0.30
-    return -0.60
+    """Continuous tanh sizing, asymmetric long-biased.
+
+        pos = 0.6 + 0.8 * tanh(score * 1.5)
+        clamped to [-0.5, +1.5]
+    """
+    pos = 0.6 + 0.8 * math.tanh(float(score_value) * 1.5)
+    return max(-0.5, min(1.5, pos))
