@@ -1,0 +1,95 @@
+# All indicators used by the framework. Edit weights here to tune the model.
+
+weights:
+  macro: 0.35
+  risk_curve: 0.20
+  micro: 0.25
+  leadlag: 0.15
+  extremes: 0.05
+
+# ---- Layer 1 : Macro Liquidity ----
+macro:
+  fred_series:
+    real_yield_10y:        DFII10           # 10y TIPS real yield
+    curve_2s10s:           T10Y2Y
+    fed_balance_sheet:     WALCL
+    rrp:                   RRPONTSYD
+    tga:                   WTREGEN
+    breakeven_5y:          T5YIE
+    m2_us:                 M2SL
+    fed_funds_real:        REAINTRATREARAT10Y
+  yahoo:
+    dxy:                   DX-Y.NYB
+    usdjpy:                JPY=X
+  rules:
+    real_yield_10y:        {direction: down, lookback_days: 60}
+    fed_balance_sheet:     {direction: up,   lookback_days: 28}
+    net_liquidity:         {direction: up,   lookback_days: 28} # WALCL - RRP - TGA
+    breakeven_5y:          {direction: up,   lookback_days: 60}
+    dxy:                   {direction: down, lookback_days: 60}
+
+# ---- Layer 2 : Risk Curve ----
+risk_curve:
+  fred_series:
+    hy_oas:                BAMLH0A0HYM2
+    ig_oas:                BAMLC0A0CM
+  yahoo:
+    vix:                   ^VIX
+    arkk:                  ARKK
+    spy:                   SPY
+    iwm:                   IWM
+    soxx:                  SOXX
+    xlp:                   XLP
+    xlu:                   XLU
+    cew:                   CEW
+    copper:                HG=F
+    gold:                  GC=F
+  ratios:
+    arkk_spy:              [arkk, spy]
+    iwm_spy:               [iwm,  spy]
+    soxx_spy:              [soxx, spy]
+    defensive_spy:         [xlp,  spy]
+    copper_gold:           [copper, gold]
+
+# ---- Layer 3 : BTC Microstructure ----
+micro:
+  coingecko:
+    btc_id:                bitcoin
+    eth_id:                ethereum
+  funding_endpoints:
+    binance:               https://fapi.binance.com/fapi/v1/fundingRate?symbol=BTCUSDT&limit=1000
+    bybit:                 https://api.bybit.com/v5/market/funding/history?category=linear&symbol=BTCUSDT&limit=200
+    okx:                   https://www.okx.com/api/v5/public/funding-rate-history?instId=BTC-USDT-SWAP&limit=100
+  oi_endpoints:
+    coinglass_open:        https://open-api-v3.coinglass.com/api/futures/openInterest/exchange-list?symbol=BTC
+    coinalyze_open:        https://api.coinalyze.net/v1/open-interest-history
+  options_endpoints:
+    deribit_dvol:          https://www.deribit.com/api/v2/public/get_volatility_index_data?currency=BTC&resolution=1D
+    deribit_summary:       https://www.deribit.com/api/v2/public/get_book_summary_by_currency?currency=BTC&kind=option
+  etf_flows_endpoints:
+    farside:               https://farside.co.uk/bitcoin-etf-flow-all-data/
+    sosovalue:             https://sosovalue.com/api/etf-flow
+
+# ---- Layer 4 : Lead/Lag ----
+leadlag:
+  yahoo:
+    mstr:                  MSTR
+    coin:                  COIN
+    mara:                  MARA
+    riot:                  RIOT
+    clsk:                  CLSK
+    btc_cme:               BTC=F
+  coingecko_pairs:
+    eth_btc:               [ethereum, bitcoin]
+  stables:
+    usdt:                  tether
+    usdc:                  usd-coin
+
+# ---- Layer 5 : Positioning extremes (z-score thresholds) ----
+extremes:
+  funding_z_buy:           -2.0
+  funding_z_sell:           2.0
+  skew_extreme_pct:         5.0    # |25d skew| in vol points
+  oi_zscore_alert:          2.0
+  mvrv_z_top:               7.0
+  mvrv_z_bottom:            0.0
