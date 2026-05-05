@@ -262,6 +262,53 @@ header[data-testid="stHeader"] {{
     color: {WHITE} !important;
     font-family: 'JetBrains Mono', monospace !important;
 }}
+/* Material Symbols icons (e.g. the close-sidebar chevron) leak their
+   ligature name as raw text when our JetBrains Mono override hits them.
+   Restore the icon font specifically on Streamlit's icon span elements
+   AND on the close-sidebar button. */
+[data-testid="stSidebar"] [class*="material-icons"],
+[data-testid="stSidebar"] [class*="MaterialIcon"],
+[data-testid="stSidebar"] [class*="icon-"],
+[data-testid="stSidebarCollapseButton"] *,
+[data-testid="stSidebarCollapseButton"] {{
+    font-family: 'Material Symbols Rounded',
+                 'Material Symbols Outlined',
+                 'Material Icons',
+                 sans-serif !important;
+    font-feature-settings: 'liga' !important;
+    -webkit-font-feature-settings: 'liga' !important;
+}}
+/* Belt-and-braces: if the icon font fails to load, replace the leaked
+   ligature text with a clean orange chevron via pseudo-content. */
+[data-testid="stSidebarCollapseButton"] {{
+    color: transparent !important;
+    position: relative !important;
+}}
+[data-testid="stSidebarCollapseButton"]::before {{
+    content: '«';
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: {ORANGE} !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 18px;
+    font-weight: 700;
+}}
+/* "NAVIGATION" label as a permanent sidebar header above the page list */
+[data-testid="stSidebarNav"]::before {{
+    content: 'NAVIGATION';
+    display: block;
+    color: {ORANGE} !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 10px;
+    letter-spacing: 0.20em;
+    font-weight: 700;
+    padding: 8px 12px 6px 12px;
+    border-bottom: 1px solid {ORANGE_DIM};
+    margin-bottom: 4px;
+}}
 [data-testid="stSidebar"] h1,
 [data-testid="stSidebar"] h2 {{
     color: {ORANGE} !important;
