@@ -1,7 +1,7 @@
 """Bloomberg-Terminal palette + global CSS injection.
 
 Every page imports ``inject_css()`` once via ``setup_page()``.
-Constants (ORANGE, BG, …) are imported directly by chart helpers.
+Constants (ORANGE, BG, ...) are imported directly by chart helpers.
 """
 from __future__ import annotations
 
@@ -35,8 +35,7 @@ MAGENTA     = "#FF44FF"
 def inject_css() -> None:
     """Inject the full Bloomberg-Terminal CSS into the current page.
 
-    Idempotent — safe to call once per page render. Streamlit deduplicates
-    identical st.markdown blocks at the DOM level.
+    Idempotent -- safe to call once per page render.
     """
     st.markdown(f"""
 <style>
@@ -202,10 +201,26 @@ div[data-testid="stAlert"] {{
 }}
 div[data-testid="stAlert"] * {{ color: {ORANGE} !important; }}
 
-/* ===== Hide Streamlit chrome ===== */
-#MainMenu, header, footer {{ visibility: hidden; }}
+/* ===== Hide Streamlit chrome -- but keep the sidebar collapse toggle visible ===== */
+#MainMenu {{ visibility: hidden; }}
+footer {{ visibility: hidden; }}
 .stDeployButton {{ display: none !important; }}
 [data-testid="stToolbar"] {{ display: none !important; }}
+/* zero-out the header bar but don't hide its children
+   (the sidebar collapse-control chevron lives in here) */
+[data-testid="stHeader"] {{
+    background: transparent !important;
+    height: 0 !important;
+}}
+[data-testid="collapsedControl"] {{
+    visibility: visible !important;
+    color: {ORANGE} !important;
+    z-index: 999 !important;
+}}
+[data-testid="collapsedControl"] svg {{
+    fill: {ORANGE} !important;
+    color: {ORANGE} !important;
+}}
 
 /* ===== Sidebar styling (multipage nav) ===== */
 [data-testid="stSidebar"] {{
@@ -342,12 +357,11 @@ div[data-testid="stAlert"] * {{ color: {ORANGE} !important; }}
     text-align: center;
     flex-shrink: 0;
 }}
-/* single vertical DASHED NOW-line that spans every row (vol intensity + 4 sessions) */
+/* single vertical DASHED NOW-line that spans every row */
 .sessions-now-line {{
     position: absolute;
     top: 0;
     bottom: 0;
-    /* track region in every row goes from 122px (label+gap) to (100% - 66px) (badge+gap) */
     left: calc(122px + (100% - 188px) * var(--now-pct, 0));
     width: 0;
     border-left: 2px dashed {YELLOW};

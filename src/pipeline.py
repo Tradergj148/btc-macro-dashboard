@@ -19,6 +19,8 @@ from src.data import derivatives as dx_mod
 from src.data import etf_flows as etf_mod
 from src.data import options as opt_mod
 from src.data import global_cb as gcb_mod
+from src.data import treasury_dts as dts_mod
+from src.data import funding_rates as fr_mod
 from src.signals.options_layer import options_composite_score
 from src.signals.macro import macro_score
 from src.signals.risk_curve import risk_curve_score
@@ -57,6 +59,12 @@ def _last_val(s):
 
 
 def main() -> int:
+    # Force line-buffered stdout so prints flush immediately when
+    # the pipeline is launched from PowerShell or piped output.
+    try:
+        sys.stdout.reconfigure(line_buffering=True)
+    except Exception:
+        pass
     cfg = load_config()
     print("[pipeline] starting", datetime.now(timezone.utc).isoformat())
 
@@ -121,6 +129,50 @@ def main() -> int:
         last = gnl["global_net_liquidity_usd_bn"].dropna().iloc[-1] if "global_net_liquidity_usd_bn" in gnl.columns else None
         cb_count = len([c for c in gnl.columns if c != "global_net_liquidity_usd_bn"])
         print(f"[pipeline] global_net_liquidity: {last:,.0f} USD bn  (across {cb_count} central banks)")
+
+    # ---------- LAYER 1C : MACRO PLUMBING ----------
+    print("[pipeline] fetching TGA balance from FiscalData ...")
+    tga_bal     = _safe(dts_mod.fetch_tga_balance, "2018-01-01")
+    print("[pipeline] fetching TGA flows ...")
+    tga_flows   = _df(_safe(dts_mod.fetch_tga_flows, "2024-01-01"))
+    print("[pipeline] fetching debt issuance ...")
+    debt_iss    = _df(_safe(dts_mod.fetch_debt_issuance, "2024-01-01"))
+    if isinstance(tga_bal, pd.Series) and not tga_bal.empty:
+        save_parquet(tga_bal.to_frame(), "tga_balance")
+        print(f"[pipeline] tga_balance: {tga_bal.iloc[-1]:,.0f} USD M "
+              f"({tga_bal.index[-1].date()})")
+    if not tga_flows.empty:
+        save_parquet(tga_flows, "tga_flows_raw")
+        net = dts_mod.tga_net_flow(tga_flows)
+        if not net.empty:
+            save_parquet(net.to_frame(), "tga_net_flow")
+    if not debt_iss.empty:
+        save_parquet(debt_iss, "debt_issuance_raw")
+        bvc = dts_mod.issuance_bills_vs_coupons(debt_iss)
+        if not bvc.empty:
+            save_parquet(bvc, "debt_bills_vs_coupons")
+
+    # Funding rates: prefer direct NY Fed + OFR sources, FRED for the rest
+    # (SOFR/BGCR/TGCR/EFFR/OBFR/OFRFSI come from NY Fed + OFR direct;
+    #  IORB and TOTRESNS stay on FRED — those work reliably.)
+    print("[pipeline] fetching NY Fed + OFR funding rates ...")
+    plumbing_direct = _df(_safe(fr_mod.fetch_plumbing_rates, '2018-01-01'))
+    plumbing_fred   = _df(_safe(fred_mod.fetch_many, {
+        "iorb":      "IORB",
+        "reserves":  "TOTRESNS",
+    }))
+    plumbing = pd.concat([plumbing_direct, plumbing_fred],
+                         axis=1, sort=True).sort_index().ffill()
+    if not plumbing.empty:
+        # SOFR-IORB spread = the cleanest "is repo plumbing creaking" signal
+        if {"sofr", "iorb"}.issubset(plumbing.columns):
+            plumbing["sofr_iorb_bps"] = (
+                (plumbing["sofr"] - plumbing["iorb"]) * 100.0
+            )
+        save_parquet(plumbing, "plumbing_rates")
+        cols = ", ".join(c for c in plumbing.columns if c != "sofr_iorb_bps")
+        print(f"[pipeline] plumbing_rates: {len(plumbing):,} rows  "
+              f"[{cols}]")
 
     # ---------- LAYER 2 : RISK CURVE ----------
     rc_fred = _df(_safe(fred_mod.fetch_many, cfg["risk_curve"]["fred_series"]))
@@ -266,7 +318,6 @@ def main() -> int:
     ex_val = extremes_score(alerts)
 
     # ---------- COMPOSITE ----------
-    # All 6 layers are now first-class members of cfg["weights"] (sums to 1.0).
     regime = composite_score(
         macro=macro_s, risk_curve=rc_s, micro=micro_s, leadlag=ll_s,
         extremes_value=ex_val,
