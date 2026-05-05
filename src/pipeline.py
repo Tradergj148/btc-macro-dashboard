@@ -17,6 +17,8 @@ from src.data import fred as fred_mod
 from src.data import yahoo as yh_mod
 from src.data import derivatives as dx_mod
 from src.data import etf_flows as etf_mod
+from src.data import options as opt_mod
+from src.signals.options_layer import options_composite_score
 from src.signals.macro import macro_score
 from src.signals.risk_curve import risk_curve_score
 from src.signals.micro import micro_score
@@ -149,6 +151,53 @@ def main() -> int:
         save_parquet(ll_s.to_frame(), "leadlag_score")
     print(f"[pipeline] leadlag_score points: {len(ll_s)}")
 
+    # ---------- LAYER 6 : OPTIONS (Deribit) ----------
+    opt_snap = _safe(opt_mod.snapshot, "BTC")
+    opt_score_obj = {"term_score": 0.0, "skew_score": 0.0,
+                     "gex_score": 0.0, "options_composite": 0.0}
+    if opt_snap:
+        # daily snapshot of full chain so GEX backtest history accumulates
+        chain_df = opt_snap.get("chain")
+        if isinstance(chain_df, pd.DataFrame) and not chain_df.empty:
+            stamp = pd.Timestamp.now(tz="UTC").strftime("%Y%m%d")
+            chain_df.to_parquet(f"data/options_chain_{stamp}.parquet")
+            save_parquet(chain_df, "options_chain_latest")
+
+        term = opt_snap.get("term")
+        skew = opt_snap.get("skew")
+        gex  = opt_snap.get("gex", {}) or {}
+
+        if isinstance(term, pd.DataFrame) and not term.empty:
+            save_parquet(term, "options_term")
+        if isinstance(skew, pd.DataFrame) and not skew.empty:
+            save_parquet(skew, "options_skew")
+        if isinstance(gex.get("by_strike"), pd.DataFrame):
+            save_parquet(gex["by_strike"], "options_gex_by_strike")
+
+        # append to GEX time-series history (single number per day)
+        gex_hist_path = "data/options_gex_history.parquet"
+        try:
+            hist = pd.read_parquet(gex_hist_path)
+        except Exception:
+            hist = pd.DataFrame(columns=["asof", "spot", "gex_total"])
+        new_row = pd.DataFrame([{
+            "asof": pd.Timestamp.now(tz="UTC"),
+            "spot": gex.get("spot", float("nan")),
+            "gex_total": gex.get("total", float("nan")),
+        }])
+        hist = pd.concat([hist, new_row], ignore_index=True)
+        # keep one entry per UTC day (last wins)
+        hist["day"] = pd.to_datetime(hist["asof"]).dt.date
+        hist = hist.drop_duplicates("day", keep="last").drop(columns="day")
+        hist.to_parquet(gex_hist_path, index=False)
+
+        gex_history_series = pd.Series(
+            hist["gex_total"].values, index=pd.to_datetime(hist["asof"]),
+            name="gex_total")
+
+        opt_score_obj = options_composite_score(term, skew, gex_history_series)
+    print(f"[pipeline] options_composite: {opt_score_obj['options_composite']:+.4f}")
+
     # ---------- LAYER 5 : EXTREMES ----------
     skew_proxy = _df(_safe(dx_mod.deribit_skew_proxy))
     skew_series = skew_proxy["skew_25d_proxy"] if "skew_25d_proxy" in skew_proxy.columns else None
@@ -165,9 +214,12 @@ def main() -> int:
     ex_val = extremes_score(alerts)
 
     # ---------- COMPOSITE ----------
+    # All 6 layers are now first-class members of cfg["weights"] (sums to 1.0).
     regime = composite_score(
         macro=macro_s, risk_curve=rc_s, micro=micro_s, leadlag=ll_s,
-        extremes_value=ex_val, weights=cfg["weights"],
+        extremes_value=ex_val,
+        weights=cfg["weights"],
+        options_value=float(opt_score_obj["options_composite"]),
     )
     if not regime.empty:
         save_parquet(regime.to_frame(), "regime_score")
@@ -184,6 +236,12 @@ def main() -> int:
             "micro":      _last_val(micro_s),
             "leadlag":    _last_val(ll_s),
             "extremes":   ex_val,
+            "options":    opt_score_obj["options_composite"],
+            "options_breakdown": {
+                "term": opt_score_obj["term_score"],
+                "skew": opt_score_obj["skew_score"],
+                "gex":  opt_score_obj["gex_score"],
+            },
         },
     }
 

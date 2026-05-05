@@ -1,4 +1,7 @@
-"""Composite Regime Score — blends all 5 layers, maps to bias label.
+"""Composite Regime Score — blends all 6 layers, maps to bias label.
+
+v0.3 — options is now a first-class layer in the YAML weight scheme,
+no longer bolted on as an additive constant.
 
 Position sizing recognises BTC's structural up-drift:
 - Default 60% long in NEUTRAL (vs 10% in v0.1)
@@ -19,7 +22,14 @@ def composite_score(
     leadlag: pd.Series,
     extremes_value: float,
     weights: dict,
+    options_value: float = 0.0,
 ) -> pd.Series:
+    """Blend the layer scores into a composite regime score.
+
+    `extremes_value` and `options_value` are scalar (today's reading).
+    Other layers are full Series spanning history; the scalar layers are
+    broadcast across the index.
+    """
     df = pd.concat(
         {
             "macro":      macro,
@@ -36,7 +46,9 @@ def composite_score(
         + w["micro"]      * df["micro"].fillna(0)
         + w["leadlag"]    * df["leadlag"].fillna(0)
     )
-    score = score + w["extremes"] * float(extremes_value)
+    # scalar layers broadcast
+    score = score + w.get("extremes", 0.0) * float(extremes_value)
+    score = score + w.get("options",  0.0) * float(options_value)
     return score.rename("regime_score")
 
 
