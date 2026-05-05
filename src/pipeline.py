@@ -18,6 +18,7 @@ from src.data import yahoo as yh_mod
 from src.data import derivatives as dx_mod
 from src.data import etf_flows as etf_mod
 from src.data import options as opt_mod
+from src.data import global_cb as gcb_mod
 from src.signals.options_layer import options_composite_score
 from src.signals.macro import macro_score
 from src.signals.risk_curve import risk_curve_score
@@ -69,6 +70,40 @@ def main() -> int:
     if not macro_s.empty:
         save_parquet(macro_s.to_frame(), "macro_score")
     print(f"[pipeline] macro_score points: {len(macro_s)}")
+
+    # ---------- LAYER 1B : GLOBAL CENTRAL BANKS (Phase A) ----------
+    # Direct-API fetchers for foreign CB balance sheets where FRED is sparse
+    boc_assets = _safe(gcb_mod.fetch_boc_assets, 10)
+    if isinstance(boc_assets, pd.Series) and not boc_assets.empty:
+        save_parquet(boc_assets.to_frame(), "boc_assets")
+    rba_assets = _safe(gcb_mod.fetch_rba_assets)
+    if isinstance(rba_assets, pd.Series) and not rba_assets.empty:
+        save_parquet(rba_assets.to_frame(), "rba_assets")
+
+    # Aggregate Global Net Liquidity in USD billions
+    def _col(df, col):
+        return df[col] if (col in df.columns) else None
+
+    gnl = gcb_mod.compute_global_net_liquidity(
+        fed_walcl  = _col(macro_df, "fed_balance_sheet"),
+        fed_rrp    = _col(macro_df, "rrp"),
+        fed_tga    = _col(macro_df, "tga"),
+        ecb_assets = _col(macro_df, "ecb_assets"),
+        boj_assets = _col(macro_df, "boj_assets"),
+        boe_assets = _col(macro_df, "boe_assets"),
+        boc_assets = boc_assets if isinstance(boc_assets, pd.Series) else None,
+        rba_assets = rba_assets if isinstance(rba_assets, pd.Series) else None,
+        eurusd     = _col(macro_df, "eurusd"),
+        usdjpy     = _col(macro_df, "usdjpy"),
+        gbpusd     = _col(macro_df, "gbpusd"),
+        usdcad     = _col(macro_df, "usdcad"),
+        audusd     = _col(macro_df, "audusd"),
+    )
+    if not gnl.empty:
+        save_parquet(gnl, "global_net_liquidity")
+        last = gnl["global_net_liquidity_usd_bn"].dropna().iloc[-1] if "global_net_liquidity_usd_bn" in gnl.columns else None
+        cb_count = len([c for c in gnl.columns if c != "global_net_liquidity_usd_bn"])
+        print(f"[pipeline] global_net_liquidity: {last:,.0f} USD bn  (across {cb_count} central banks)")
 
     # ---------- LAYER 2 : RISK CURVE ----------
     rc_fred = _df(_safe(fred_mod.fetch_many, cfg["risk_curve"]["fred_series"]))

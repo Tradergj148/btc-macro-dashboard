@@ -15,9 +15,18 @@ macro:
     breakeven_5y: T5YIE
     m2_us: M2SL
     fed_funds_real: REAINTRATREARAT10Y
+    ecb_assets: ECBASSETSW
+    ez_hicp_yoy: CP0000EZ19M086NEST
+    jp_cpi_yoy: JPNCPIALLMINMEI
   yahoo:
     dxy: DX-Y.NYB
     usdjpy: JPY=X
+    eurusd: EURUSD=X
+    gbpusd: GBPUSD=X
+    usdcad: CAD=X
+    audusd: AUDUSD=X
+    nzdusd: NZDUSD=X
+    usdcnh: CNH=X
   rules:
     real_yield_10y:
       direction: down
@@ -34,6 +43,23 @@ macro:
     dxy:
       direction: down
       lookback_days: 60
+  global_cb_direct:
+    boc:
+      url: https://www.bankofcanada.ca/valet/observations/V36636/json?recent_years=10
+      label: Bank of Canada total assets
+      currency: CAD
+    boj:
+      url: https://www.stat-search.boj.or.jp/...
+      label: Bank of Japan total assets
+      currency: JPY
+    rba:
+      url: https://www.rba.gov.au/statistics/tables/csv/a01-hist.csv
+      label: Reserve Bank of Australia balance sheet
+      currency: AUD
+    rbnz:
+      url: https://www.rbnz.govt.nz/-/media/...
+      label: Reserve Bank of New Zealand balance sheet
+      currency: NZD
 risk_curve:
   fred_series:
     hy_oas: BAMLH0A0HYM2
