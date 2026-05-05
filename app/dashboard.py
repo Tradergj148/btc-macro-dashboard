@@ -354,27 +354,44 @@ div[data-testid="stAlert"] * {{ color: {ORANGE} !important; }}
     text-align: center;
     flex-shrink: 0;
 }}
-.now-marker-row {{
+/* single vertical DASHED NOW-line that spans every row (vol intensity + 4 sessions) */
+.sessions-now-line {{
     position: absolute;
-    top: 0; bottom: 0;
-    width: 2px;
-    background: {YELLOW};
-    box-shadow: 0 0 4px {YELLOW};
-    z-index: 10;
+    top: 0;
+    bottom: 0;
+    /* track region in every row goes from 122px (label+gap) to (100% - 66px) (badge+gap) */
+    left: calc(122px + (100% - 188px) * var(--now-pct, 0));
+    width: 0;
+    border-left: 2px dashed {YELLOW};
+    z-index: 12;
     pointer-events: none;
 }}
-.now-marker-row::before {{
+.sessions-now-line::before {{
     content: '';
     position: absolute;
-    top: -3px; left: -3px;
-    width: 8px; height: 8px;
+    top: -4px;
+    left: -5px;
+    width: 8px;
+    height: 8px;
     background: {YELLOW};
     border-radius: 50%;
+    box-shadow: 0 0 4px {YELLOW};
+}}
+.sessions-now-line::after {{
+    content: 'NOW';
+    position: absolute;
+    top: -14px;
+    left: -14px;
+    color: {YELLOW};
+    font-size: 7px;
+    font-weight: 700;
+    letter-spacing: 0.10em;
+    text-shadow: 0 0 2px black;
 }}
 .session-axis {{
     margin-left: 122px;
     margin-top: 2px;
-    color: {TEXT_DIM};
+    color: {WHITE};
     font-size: 8px;
     display: flex;
     justify-content: space-between;
@@ -702,7 +719,7 @@ st.markdown(f"""
     <span class="fnkey">F7</span><span class="fnlbl">BACKTEST</span>
 </div>
 <div class="statusbar">
-    <div><b>USER</b> <span>GUILLE@AETHEION</span> &nbsp;<span class="dim">|</span>&nbsp;
+    <div><b>USER</b> <span>TRADERGJ148@AETHEION</span> &nbsp;<span class="dim">|</span>&nbsp;
          <b>FRAMEWORK</b> <span>CAPITAL FLOWS RESEARCH</span> &nbsp;<span class="dim">|</span>&nbsp;
          <b>MODE</b> <span>MONITOR</span></div>
     <div><b>DATA AS-OF</b> <span>{asof}</span></div>
@@ -753,7 +770,6 @@ def _render_sessions_panel():
             f'<div class="session-track">'
             f'<div class="session-block" style="left:{start_pct:.2f}%;width:{width_pct:.2f}%;background:{s["color"]};"></div>'
             f'<div class="session-time-text" style="left:{mid_pct:.2f}%;">{time_text}</div>'
-            f'<div class="now-marker-row" style="left:{current_pct:.2f}%;"></div>'
             f'</div>'
             f'{badge}'
             f'</div>'
@@ -829,7 +845,6 @@ def _render_sessions_panel():
         f'<div class="vol-intensity-label">VOL INTENSITY</div>'
         f'<div class="vol-intensity-track">'
         f'{vol_zones_html}'
-        f'<div class="now-marker-row" style="left:{current_pct:.2f}%;"></div>'
         f'</div>'
         f'<div class="vol-intensity-meter" style="background:{meter_color};color:#000;">{meter_text}</div>'
         f'</div>'
@@ -847,6 +862,11 @@ def _render_sessions_panel():
             f'</div>'
         )
 
+    # single dashed NOW-line spanning every row (var carries fraction 0..1)
+    now_line_html = (
+        f'<div class="sessions-now-line" '
+        f'style="--now-pct:{current_pct/100.0:.4f};"></div>'
+    )
     panel_html = (
         f'<div class="sessions-panel">'
         f'<div class="sessions-title">'
@@ -858,6 +878,7 @@ def _render_sessions_panel():
         f'<div class="sessions-rows">'
         f'  {vol_intensity_html}'
         f'  {rows_html}'
+        f'  {now_line_html}'
         f'</div>'
         f'{axis}'
         f'</div>'
