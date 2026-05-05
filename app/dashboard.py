@@ -294,7 +294,7 @@ div[data-testid="stAlert"] * {{ color: {ORANGE} !important; }}
     position: relative;
 }}
 .session-label {{
-    color: {ORANGE};
+    color: currentColor;
     font-size: 9px;
     width: 110px;
     text-align: right;
@@ -303,7 +303,7 @@ div[data-testid="stAlert"] * {{ color: {ORANGE} !important; }}
     font-weight: 700;
     flex-shrink: 0;
 }}
-.session-row.active .session-label {{ color: {GREEN}; }}
+/* session label color is inherited from row */
 .session-track {{
     flex: 1;
     height: 14px;
@@ -664,7 +664,26 @@ def _render_sessions_panel():
             '<span>00:00</span><span>06:00</span>'
             '<span>12:00</span><span>18:00</span><span>00:00</span></div>')
 
-    active_text = (f"  ·  {active} ACTIVE" if active else "  ·  Off-hours")
+    # ---------- OPENING-SOON countdown ----------
+    # Look for the next session whose start is within +/-15 minutes
+    OPENING_WINDOW_MIN = 15
+    opening_soon = None
+    for s in SESSIONS:
+        delta_min = (s["start"] - hour_dec) * 60.0
+        if 0 <= delta_min <= OPENING_WINDOW_MIN:
+            opening_soon = (s["label"], delta_min, s["color"])
+            break
+    if active:
+        active_text = f"  ·  {active} ACTIVE"
+    elif opening_soon:
+        lbl, mins, col = opening_soon
+        m = int(mins); s_ = int((mins - m) * 60)
+        active_text = (
+            f"  ·  <span style=\"color:{col};font-weight:700;\">{lbl} OPENS IN "
+            f"{m:02d}:{s_:02d}</span>"
+        )
+    else:
+        active_text = "  ·  Off-hours"
     # ---- VOLUME INTENSITY OVERLAP ZONES ----
     # Each zone: (start_hour, end_hour, label, intensity_0_to_1, color)
     VOL_ZONES = [
@@ -717,6 +736,18 @@ def _render_sessions_panel():
         f'</div>'
     )
 
+    # ---------- LOW LIQUIDITY warning strip ----------
+    low_warn_html = ""
+    if cur_intensity < 0.40:
+        low_warn_html = (
+            f'<div style="background:rgba(255,235,59,0.10);'
+            f'border:1px solid {YELLOW};color:{YELLOW};'
+            f'padding:4px 10px;font-size:10px;letter-spacing:0.12em;'
+            f'font-weight:700;margin-bottom:8px;text-align:center;">'
+            f'⚠️  LOW LIQUIDITY WINDOW ({cur_label}) — WIDER SPREADS · FALSE BREAKOUTS LIKELY · DEFER FRESH ENTRIES'
+            f'</div>'
+        )
+
     panel_html = (
         f'<div class="sessions-panel">'
         f'<div class="sessions-title">'
@@ -731,6 +762,7 @@ def _render_sessions_panel():
         f'</div>'
         f'{axis}'
         f'</div>'
+        f'{low_warn_html}'
     )
     st.markdown(panel_html, unsafe_allow_html=True)
 
