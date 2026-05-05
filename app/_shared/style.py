@@ -201,23 +201,54 @@ div[data-testid="stAlert"] {{
 }}
 div[data-testid="stAlert"] * {{ color: {ORANGE} !important; }}
 
-/* ===== Hide Streamlit chrome -- but keep the sidebar collapse toggle visible ===== */
+/* ===== Surgical chrome cleanup (Streamlit 1.57) ============================
+   Hide ONLY the deploy button + 3-dot main menu.
+   Do NOT touch stToolbar, button[kind="header"], or anything that lives in
+   the sidebar hierarchy -- Streamlit nests the sidebar nav under those in
+   recent versions, and hitting them takes the whole sidebar offline.
+   ============================================================================ */
 #MainMenu {{ visibility: hidden; }}
 footer {{ visibility: hidden; }}
-.stDeployButton {{ display: none !important; }}
-[data-testid="stToolbar"] {{ display: none !important; }}
-/* zero-out the header bar but don't hide its children
-   (the sidebar collapse-control chevron lives in here) */
-[data-testid="stHeader"] {{
+
+/* Deploy button -- specific testids + aria/title fallbacks */
+.stDeployButton,
+[data-testid="stDeployButton"],
+[data-testid="stAppDeployButton"],
+button[title="Deploy this app"],
+button[title*="Deploy"],
+[aria-label*="Deploy"] {{
+    display: none !important;
+}}
+
+/* 3-dot main menu */
+[data-testid="stMainMenu"],
+button[title="Main menu"],
+button[title*="View options"],
+[aria-label="Main menu"],
+[aria-label="View options"] {{
+    display: none !important;
+}}
+
+/* Header bar background transparent (don't touch its children) */
+[data-testid="stHeader"],
+header[data-testid="stHeader"] {{
     background: transparent !important;
-    height: 0 !important;
 }}
-[data-testid="collapsedControl"] {{
-    visibility: visible !important;
+
+/* Sidebar toggle: just style the chevron, do NOT pin its position --
+   Streamlit places it correctly on its own in v1.57; over-positioning was
+   what made the sidebar disappear. */
+[data-testid="collapsedControl"],
+[data-testid="stSidebarCollapseButton"],
+[data-testid="stSidebarCollapsedControl"],
+[data-testid="stExpandSidebarButton"] {{
     color: {ORANGE} !important;
-    z-index: 999 !important;
+    visibility: visible !important;
 }}
-[data-testid="collapsedControl"] svg {{
+[data-testid="collapsedControl"] svg,
+[data-testid="stSidebarCollapseButton"] svg,
+[data-testid="stSidebarCollapsedControl"] svg,
+[data-testid="stExpandSidebarButton"] svg {{
     fill: {ORANGE} !important;
     color: {ORANGE} !important;
 }}
