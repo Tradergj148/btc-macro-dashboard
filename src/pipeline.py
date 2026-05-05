@@ -71,33 +71,50 @@ def main() -> int:
         save_parquet(macro_s.to_frame(), "macro_score")
     print(f"[pipeline] macro_score points: {len(macro_s)}")
 
-    # ---------- LAYER 1B : GLOBAL CENTRAL BANKS (Phase A) ----------
-    # Direct-API fetchers for foreign CB balance sheets where FRED is sparse
-    boc_assets = _safe(gcb_mod.fetch_boc_assets, 10)
-    if isinstance(boc_assets, pd.Series) and not boc_assets.empty:
-        save_parquet(boc_assets.to_frame(), "boc_assets")
-    rba_assets = _safe(gcb_mod.fetch_rba_assets)
-    if isinstance(rba_assets, pd.Series) and not rba_assets.empty:
-        save_parquet(rba_assets.to_frame(), "rba_assets")
+    # ---------- LAYER 1B : GLOBAL CENTRAL BANKS (Phase B: G7 + PBOC) ----------
+    # Direct-API fetchers for every foreign central bank we cover
+    boc_assets  = _safe(gcb_mod.fetch_boc_assets, 10)
+    boj_assets  = _safe(gcb_mod.fetch_boj_assets)
+    boe_assets  = _safe(gcb_mod.fetch_boe_assets)
+    rba_assets  = _safe(gcb_mod.fetch_rba_assets)
+    rbnz_assets = _safe(gcb_mod.fetch_rbnz_assets)
+    pboc_assets = _safe(gcb_mod.fetch_pboc_assets)
+
+    for name, s in [("boc_assets",  boc_assets),
+                    ("boj_assets",  boj_assets),
+                    ("boe_assets",  boe_assets),
+                    ("rba_assets",  rba_assets),
+                    ("rbnz_assets", rbnz_assets),
+                    ("pboc_assets", pboc_assets)]:
+        if isinstance(s, pd.Series) and not s.empty:
+            save_parquet(s.to_frame(), name)
 
     # Aggregate Global Net Liquidity in USD billions
     def _col(df, col):
         return df[col] if (col in df.columns) else None
 
+    def _ser(x):
+        return x if isinstance(x, pd.Series) else None
+
     gnl = gcb_mod.compute_global_net_liquidity(
-        fed_walcl  = _col(macro_df, "fed_balance_sheet"),
-        fed_rrp    = _col(macro_df, "rrp"),
-        fed_tga    = _col(macro_df, "tga"),
-        ecb_assets = _col(macro_df, "ecb_assets"),
-        boj_assets = _col(macro_df, "boj_assets"),
-        boe_assets = _col(macro_df, "boe_assets"),
-        boc_assets = boc_assets if isinstance(boc_assets, pd.Series) else None,
-        rba_assets = rba_assets if isinstance(rba_assets, pd.Series) else None,
-        eurusd     = _col(macro_df, "eurusd"),
-        usdjpy     = _col(macro_df, "usdjpy"),
-        gbpusd     = _col(macro_df, "gbpusd"),
-        usdcad     = _col(macro_df, "usdcad"),
-        audusd     = _col(macro_df, "audusd"),
+        fed_walcl   = _col(macro_df, "fed_balance_sheet"),
+        fed_rrp     = _col(macro_df, "rrp"),
+        fed_tga     = _col(macro_df, "tga"),
+        ecb_assets  = _col(macro_df, "ecb_assets"),
+        boc_assets  = _ser(boc_assets),
+        # foreign CBs via FRED M3 monetary aggregates (reliable proxy)
+        boj_m3      = _col(macro_df, "boj_m3"),
+        boe_m3      = _col(macro_df, "boe_m3"),
+        rba_m3      = _col(macro_df, "rba_m3"),
+        rbnz_m3     = _col(macro_df, "rbnz_m3"),
+        pboc_m3     = _col(macro_df, "pboc_m3"),
+        eurusd      = _col(macro_df, "eurusd"),
+        usdjpy      = _col(macro_df, "usdjpy"),
+        gbpusd      = _col(macro_df, "gbpusd"),
+        usdcad      = _col(macro_df, "usdcad"),
+        audusd      = _col(macro_df, "audusd"),
+        nzdusd      = _col(macro_df, "nzdusd"),
+        usdcnh      = _col(macro_df, "usdcnh"),
     )
     if not gnl.empty:
         save_parquet(gnl, "global_net_liquidity")

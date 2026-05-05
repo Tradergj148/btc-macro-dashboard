@@ -18,6 +18,11 @@ macro:
     ecb_assets: ECBASSETSW
     ez_hicp_yoy: CP0000EZ19M086NEST
     jp_cpi_yoy: JPNCPIALLMINMEI
+    boj_m3: MABMM301JPM189N
+    boe_m3: MABMM301GBM189N
+    rba_m3: MABMM301AUM189N
+    rbnz_m3: MABMM301NZM189N
+    pboc_m3: MABMM01CNM189N
   yahoo:
     dxy: DX-Y.NYB
     usdjpy: JPY=X

@@ -596,12 +596,22 @@ with tab_macro:
                        and c != "global_net_liquidity_usd_bn"]
             if cb_cols:
                 fig = go.Figure()
-                cb_palette = {"fed_usd_bn": ORANGE, "ecb_usd_bn": CYAN,
-                              "boj_usd_bn": GREEN, "boe_usd_bn": YELLOW,
-                              "boc_usd_bn": MAGENTA, "rba_usd_bn": "#FF8800"}
-                cb_label   = {"fed_usd_bn": "FED",   "ecb_usd_bn": "ECB",
-                              "boj_usd_bn": "BOJ",   "boe_usd_bn": "BOE",
-                              "boc_usd_bn": "BoC",   "rba_usd_bn": "RBA"}
+                cb_palette = {"fed_usd_bn":  ORANGE,
+                              "ecb_usd_bn":  CYAN,
+                              "boj_usd_bn":  GREEN,
+                              "boe_usd_bn":  YELLOW,
+                              "boc_usd_bn":  MAGENTA,
+                              "rba_usd_bn":  "#FF8800",
+                              "rbnz_usd_bn": "#9B7DFF",
+                              "pboc_usd_bn": "#FF44FF"}
+                cb_label   = {"fed_usd_bn":  "FED",
+                              "ecb_usd_bn":  "ECB",
+                              "boj_usd_bn":  "BOJ",
+                              "boe_usd_bn":  "BOE",
+                              "boc_usd_bn":  "BoC",
+                              "rba_usd_bn":  "RBA",
+                              "rbnz_usd_bn": "RBNZ",
+                              "pboc_usd_bn": "PBOC*"}
                 df_stack = gnl[cb_cols].tail(2500)
                 for c in cb_cols:
                     fig.add_trace(go.Scatter(
@@ -638,7 +648,11 @@ with tab_macro:
                 st.markdown(
                     f"<div class='panel'><div class='panel-title'>"
                     f"GLOBAL CB SNAPSHOT</div>"
-                    f"{''.join(rows_html)}</div>",
+                    f"{''.join(rows_html)}"
+                    f"<div style='font-size:9px;color:{TEXT_DIM};margin-top:6px;'>"
+                    f"* PBOC value is a proxy via M3 monetary aggregate "
+                    f"(true PBOC balance sheet not free / available real-time)."
+                    f"</div></div>",
                     unsafe_allow_html=True)
 
         # ---------- FX MAJORS DASHBOARD (Layer 1C) ----------
