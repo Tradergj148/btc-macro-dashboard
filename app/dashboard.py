@@ -437,6 +437,105 @@ div[data-testid="stAlert"] * {{ color: {ORANGE} !important; }}
     padding: 1px 5px;
 }}
 
+
+/* ===== COMPACT REGIME STRIP (6 cells, fully responsive) ===== */
+.regime-strip {{
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 4px;
+    margin: 8px 0;
+    overflow: hidden;
+}}
+.regime-cell {{
+    flex: 1 1 0;
+    min-width: 0;
+    background: {PANEL_BG};
+    border: 1px solid {ORANGE_DIM};
+    padding: 8px 6px 6px 6px;
+    text-align: center;
+    position: relative;
+}}
+.regime-cell.composite {{
+    flex: 1.6 1 0;
+    border: 2px solid {ORANGE};
+    background: linear-gradient(180deg, rgba(250,139,31,0.08), {PANEL_BG} 60%);
+}}
+.regime-cell .rc-label {{
+    color: {ORANGE};
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    font-weight: 700;
+    text-transform: uppercase;
+    line-height: 1;
+}}
+.regime-cell.composite .rc-label {{
+    font-size: 10px;
+    letter-spacing: 0.20em;
+}}
+.regime-cell .rc-bias {{
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.10em;
+    margin-top: 4px;
+    line-height: 1;
+}}
+.regime-cell.composite .rc-bias {{
+    font-size: 14px;
+    margin-top: 6px;
+}}
+.regime-cell .rc-score {{
+    font-size: 18px;
+    font-weight: 700;
+    margin: 4px 0 4px;
+    font-family: 'JetBrains Mono', monospace;
+    line-height: 1;
+}}
+.regime-cell.composite .rc-score {{
+    font-size: 26px;
+    margin: 6px 0;
+}}
+.regime-cell .rc-bar {{
+    position: relative;
+    height: 5px;
+    background: {GRID};
+    border-radius: 1px;
+    margin: 4px 4px 2px;
+    overflow: visible;
+}}
+.regime-cell .rc-bar::before {{
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: -2px; bottom: -2px;
+    width: 1px;
+    background: {ORANGE_DIM};
+}}
+.regime-cell .rc-marker {{
+    position: absolute;
+    width: 8px;
+    height: 12px;
+    top: -3.5px;
+    margin-left: -4px;
+    border-radius: 1px;
+}}
+.regime-cell .rc-strength {{
+    color: {TEXT_DIM};
+    font-size: 8px;
+    margin-top: 4px;
+    letter-spacing: 0.15em;
+    font-weight: 700;
+}}
+.regime-cell .rc-pos {{
+    background: {YELLOW};
+    color: {BG};
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    padding: 2px 6px;
+    margin: 6px auto 0;
+    display: inline-block;
+}}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -778,23 +877,64 @@ bias_color = {
     "BEARISH": RED, "STRONG BEARISH": RED,
 }.get(bias, ORANGE)
 
-c1, c2, c3, c4, c5 = st.columns([1.3, 1, 1, 1, 1])
+def _bias_word(v):
+    if v is None or (isinstance(v, float) and v != v):
+        return "—", TEXT_DIM
+    if v >  0.50:  return "STRONG BULL", GREEN
+    if v >  0.20:  return "BULLISH",     GREEN
+    if v > -0.20:  return "NEUTRAL",     ORANGE
+    if v > -0.50:  return "BEARISH",     RED
+    return "STRONG BEAR", RED
 
-with c1:
-    sc_str = f"{regime:+.3f}" if isinstance(regime, (int, float)) else "—"
-    pw_str = f"{posw*100:+.0f}%" if isinstance(posw, (int, float)) else "—"
-    st.markdown(f"""
-    <div class="bias-banner">
-        <div class="value" style="color:{bias_color};">{bias}</div>
-        <div class="sub">SCORE <b style="color:{bias_color}">{sc_str}</b>
-            &nbsp;·&nbsp; POS&nbsp;<b style="color:{bias_color}">{pw_str}</b></div>
-    </div>
-    """, unsafe_allow_html=True)
+def _strength_word(v):
+    if v is None or (isinstance(v, float) and v != v):
+        return ""
+    a = abs(v)
+    if a > 0.50: return "STRONG"
+    if a > 0.20: return "MODERATE"
+    if a > 0.05: return "WEAK"
+    return "FLAT"
 
-with c2: st.plotly_chart(gauge(comps.get("macro"),      "MACRO"),       width='stretch', config={"displayModeBar": False})
-with c3: st.plotly_chart(gauge(comps.get("risk_curve"), "RISK CURVE"),  width='stretch', config={"displayModeBar": False})
-with c4: st.plotly_chart(gauge(comps.get("micro"),      "MICRO"),       width='stretch', config={"displayModeBar": False})
-with c5: st.plotly_chart(gauge(comps.get("leadlag"),    "LEAD/LAG"),    width='stretch', config={"displayModeBar": False})
+def _cell_html(label, score, is_composite=False, posw=None):
+    if score is None or (isinstance(score, float) and score != score):
+        score_str = "—"
+        bias_word, bias_color = "—", TEXT_DIM
+        marker_pct = 50.0
+        strength = ""
+    else:
+        score_str = f"{score:+.3f}"
+        bias_word, bias_color = _bias_word(score)
+        marker_pct = max(0, min(100, (score + 1) * 50))
+        strength = _strength_word(score)
+    cls = "regime-cell composite" if is_composite else "regime-cell"
+    pos_html = ""
+    if is_composite and posw is not None and isinstance(posw, (int, float)):
+        pos_html = f'<div class="rc-pos">POS {posw*100:+.0f}% LONG</div>'
+    border_color = ORANGE if is_composite else bias_color
+    return (
+        f'<div class="{cls}" style="border-color:{border_color};">'
+        f'<div class="rc-label">{label}</div>'
+        f'<div class="rc-bias" style="color:{bias_color};">{bias_word}</div>'
+        f'<div class="rc-score" style="color:{bias_color};">{score_str}</div>'
+        f'<div class="rc-bar">'
+        f'<div class="rc-marker" style="left:{marker_pct:.1f}%;background:{bias_color};box-shadow:0 0 4px {bias_color};"></div>'
+        f'</div>'
+        f'<div class="rc-strength">{strength}</div>'
+        f'{pos_html}'
+        f'</div>'
+    )
+
+strip_html = (
+    f'<div class="regime-strip">'
+    f'{_cell_html("REGIME COMPOSITE", regime, is_composite=True, posw=posw)}'
+    f'{_cell_html("MACRO",      comps.get("macro"))}'
+    f'{_cell_html("RISK CURVE", comps.get("risk_curve"))}'
+    f'{_cell_html("MICRO",      comps.get("micro"))}'
+    f'{_cell_html("LEAD/LAG",   comps.get("leadlag"))}'
+    f'{_cell_html("OPTIONS",    comps.get("options"))}'
+    f'</div>'
+)
+st.markdown(strip_html, unsafe_allow_html=True)
 
 
 # ============================================================
