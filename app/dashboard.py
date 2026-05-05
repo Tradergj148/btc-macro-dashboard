@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from pathlib import Path
 
 import pandas as pd
@@ -259,6 +260,183 @@ div[data-testid="stAlert"] * {{ color: {ORANGE} !important; }}
 ::-webkit-scrollbar-track {{ background: {BG}; }}
 ::-webkit-scrollbar-thumb {{ background: {ORANGE_DIM}; }}
 
+
+/* ===== TRADING SESSIONS PANEL ===== */
+.sessions-panel {{
+    background: {PANEL_BG};
+    border: 1px solid {ORANGE_DIM};
+    padding: 8px 12px;
+    margin-bottom: 8px;
+    position: relative;
+}}
+.sessions-title {{
+    color: {ORANGE};
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    font-weight: 700;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}}
+.sessions-title .now-badge {{
+    color: {YELLOW};
+    font-size: 11px;
+    letter-spacing: 0.10em;
+}}
+.sessions-rows {{ position: relative; }}
+.session-row {{
+    display: flex;
+    align-items: center;
+    margin: 3px 0;
+    height: 18px;
+    position: relative;
+}}
+.session-label {{
+    color: {ORANGE};
+    font-size: 9px;
+    width: 110px;
+    text-align: right;
+    margin-right: 12px;
+    letter-spacing: 0.10em;
+    font-weight: 700;
+    flex-shrink: 0;
+}}
+.session-row.active .session-label {{ color: {GREEN}; }}
+.session-track {{
+    flex: 1;
+    height: 14px;
+    background: {GRID};
+    position: relative;
+    border-radius: 1px;
+}}
+.session-block {{
+    position: absolute;
+    height: 100%;
+    top: 0;
+    border-radius: 1px;
+    opacity: 0.55;
+    transition: opacity .2s;
+}}
+.session-row.active .session-block {{
+    opacity: 1.0;
+    box-shadow: 0 0 6px currentColor;
+}}
+.session-time-text {{
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 8px;
+    color: {WHITE};
+    white-space: nowrap;
+    pointer-events: none;
+    font-weight: 600;
+    text-shadow: 0 0 2px black;
+}}
+.session-active-badge {{
+    background: {GREEN};
+    color: {BG};
+    font-weight: 700;
+    font-size: 8px;
+    letter-spacing: 0.15em;
+    padding: 1px 5px;
+    margin-left: 6px;
+    flex-shrink: 0;
+    width: 60px;
+    text-align: center;
+}}
+.session-pending-badge {{
+    color: {TEXT_DIM};
+    font-size: 8px;
+    margin-left: 6px;
+    width: 60px;
+    text-align: center;
+    flex-shrink: 0;
+}}
+.now-marker-row {{
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 2px;
+    background: {YELLOW};
+    box-shadow: 0 0 4px {YELLOW};
+    z-index: 10;
+    pointer-events: none;
+}}
+.now-marker-row::before {{
+    content: '';
+    position: absolute;
+    top: -3px; left: -3px;
+    width: 8px; height: 8px;
+    background: {YELLOW};
+    border-radius: 50%;
+}}
+.session-axis {{
+    margin-left: 122px;
+    margin-top: 2px;
+    color: {TEXT_DIM};
+    font-size: 8px;
+    display: flex;
+    justify-content: space-between;
+}}
+
+
+/* ===== VOLUME INTENSITY OVERLAP TRACK ===== */
+.vol-intensity-row {{
+    display: flex;
+    align-items: center;
+    margin: 6px 0 8px 0;
+    height: 22px;
+    position: relative;
+    border-bottom: 1px dotted {ORANGE_DIM};
+    padding-bottom: 6px;
+}}
+.vol-intensity-label {{
+    color: {ORANGE};
+    font-size: 9px;
+    width: 110px;
+    text-align: right;
+    margin-right: 12px;
+    letter-spacing: 0.10em;
+    font-weight: 700;
+    flex-shrink: 0;
+}}
+.vol-intensity-track {{
+    flex: 1;
+    height: 18px;
+    background: {GRID};
+    position: relative;
+    border-radius: 1px;
+}}
+.vol-zone {{
+    position: absolute;
+    height: 100%;
+    top: 0;
+    border-right: 1px solid {BG};
+}}
+.vol-zone-text {{
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 7px;
+    color: {WHITE};
+    white-space: nowrap;
+    pointer-events: none;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-shadow: 0 0 2px black;
+}}
+.vol-intensity-meter {{
+    width: 60px;
+    margin-left: 6px;
+    flex-shrink: 0;
+    text-align: center;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.10em;
+    padding: 1px 5px;
+}}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -431,6 +609,132 @@ st.markdown(f"""
     <div><b>DATA AS-OF</b> <span>{asof}</span></div>
 </div>
 """, unsafe_allow_html=True)
+
+
+# ============================================================
+#  TRADING SESSIONS PANEL (NY time / ET)
+# ============================================================
+SESSIONS = [
+    {"label": "ASIA RANGE",   "start": 20.0, "end": 24.0, "color": "#7E8C9B"},
+    {"label": "LONDON",       "start":  2.0, "end":  5.0, "color": "#FF6B8A"},
+    {"label": "NEW YORK AM",  "start":  9.5, "end": 12.0, "color": "#88E090"},
+    {"label": "NEW YORK PM",  "start": 13.5, "end": 16.0, "color": "#C8A2D6"},
+]
+
+def _render_sessions_panel():
+    try:
+        now_et = datetime.now(ZoneInfo("America/New_York"))
+    except Exception:
+        now_et = datetime.now(timezone.utc)
+    hour_dec = now_et.hour + now_et.minute / 60.0
+    current_pct = hour_dec / 24.0 * 100.0
+
+    active = None
+    for s in SESSIONS:
+        if s["start"] <= hour_dec < s["end"]:
+            active = s["label"]; break
+
+    def _hm(h):
+        hr = int(h); mn = int(round((h - hr) * 60))
+        return f"{hr:02d}:{mn:02d}"
+
+    rows_html = ""
+    for s in SESSIONS:
+        start_pct = s["start"] / 24 * 100
+        width_pct = (s["end"] - s["start"]) / 24 * 100
+        mid_pct   = start_pct + width_pct / 2
+        is_active = (active == s["label"])
+        active_cls = "active" if is_active else ""
+        time_text = f"{_hm(s['start'])} – {_hm(s['end'] if s['end']<24 else 0)}"
+        badge = ('<div class="session-active-badge">ACTIVE</div>' if is_active
+                 else '<div class="session-pending-badge">—</div>')
+        rows_html += (
+            f'<div class="session-row {active_cls}" style="color:{s["color"]};">'
+            f'<div class="session-label">{s["label"]}</div>'
+            f'<div class="session-track">'
+            f'<div class="session-block" style="left:{start_pct:.2f}%;width:{width_pct:.2f}%;background:{s["color"]};"></div>'
+            f'<div class="session-time-text" style="left:{mid_pct:.2f}%;">{time_text}</div>'
+            f'<div class="now-marker-row" style="left:{current_pct:.2f}%;"></div>'
+            f'</div>'
+            f'{badge}'
+            f'</div>'
+        )
+
+    axis = ('<div class="session-axis">'
+            '<span>00:00</span><span>06:00</span>'
+            '<span>12:00</span><span>18:00</span><span>00:00</span></div>')
+
+    active_text = (f"  ·  {active} ACTIVE" if active else "  ·  Off-hours")
+    # ---- VOLUME INTENSITY OVERLAP ZONES ----
+    # Each zone: (start_hour, end_hour, label, intensity_0_to_1, color)
+    VOL_ZONES = [
+        ( 0.0,  2.0, "ASIA TAIL",        0.30, "#3F4A55"),   # post-Tokyo, no overlap
+        ( 2.0,  8.0, "TOKYO+LONDON",     0.55, "#5A8C9B"),   # mid-overlap
+        ( 8.0, 12.0, "LONDON+NY  ★PEAK", 1.00, "#FA8B1F"),   # highest volume
+        (12.0, 13.5, "NY LUNCH",         0.70, "#C8A2D6"),   # London trailing
+        (13.5, 16.0, "NY MAIN",          0.85, "#88E090"),   # NY afternoon
+        (16.0, 20.0, "POST-NY GAP",      0.25, "#2A2A2A"),   # quiet, low vol
+        (20.0, 24.0, "ASIA OPEN",        0.50, "#7E8C9B"),   # Tokyo/Sydney start
+    ]
+    # find current vol zone
+    current_vol = next((z for z in VOL_ZONES if z[0] <= hour_dec < z[1]), None)
+    cur_label = current_vol[2] if current_vol else "—"
+    cur_intensity = current_vol[3] if current_vol else 0
+    cur_color = current_vol[4] if current_vol else "#444"
+
+    vol_zones_html = ""
+    for s, e, lbl, intensity, color in VOL_ZONES:
+        start_pct = s / 24 * 100
+        width_pct = (e - s) / 24 * 100
+        mid_pct = start_pct + width_pct / 2
+        opacity = 0.35 + intensity * 0.65   # 0.35..1.00
+        is_now = current_vol is not None and current_vol[0] == s
+        glow = "box-shadow: 0 0 8px currentColor;" if is_now else ""
+        vol_zones_html += (
+            f'<div class="vol-zone" style="left:{start_pct:.2f}%;width:{width_pct:.2f}%;'
+            f'background:{color};opacity:{opacity:.2f};color:{color};{glow}"></div>'
+            f'<div class="vol-zone-text" style="left:{mid_pct:.2f}%;">{lbl}</div>'
+        )
+
+    # intensity meter for the current zone
+    if cur_intensity >= 0.85:
+        meter_text, meter_color = "PEAK VOL", "#FA8B1F"
+    elif cur_intensity >= 0.65:
+        meter_text, meter_color = "HIGH VOL", "#88E090"
+    elif cur_intensity >= 0.40:
+        meter_text, meter_color = "MED VOL",  "#C8A2D6"
+    else:
+        meter_text, meter_color = "LOW VOL",  "#7E8C9B"
+
+    vol_intensity_html = (
+        f'<div class="vol-intensity-row">'
+        f'<div class="vol-intensity-label">VOL INTENSITY</div>'
+        f'<div class="vol-intensity-track">'
+        f'{vol_zones_html}'
+        f'<div class="now-marker-row" style="left:{current_pct:.2f}%;"></div>'
+        f'</div>'
+        f'<div class="vol-intensity-meter" style="background:{meter_color};color:#000;">{meter_text}</div>'
+        f'</div>'
+    )
+
+    panel_html = (
+        f'<div class="sessions-panel">'
+        f'<div class="sessions-title">'
+        f'<span>TRADING SESSIONS &amp; VOL INTENSITY — NY TIME (ET)</span>'
+        f'<span class="now-badge">NOW: {now_et.strftime("%H:%M")} ET'
+        f'  ·  {cur_label} ({meter_text})'
+        f'  {active_text}</span>'
+        f'</div>'
+        f'<div class="sessions-rows">'
+        f'  {vol_intensity_html}'
+        f'  {rows_html}'
+        f'</div>'
+        f'{axis}'
+        f'</div>'
+    )
+    st.markdown(panel_html, unsafe_allow_html=True)
+
+_render_sessions_panel()
 
 
 # ============================================================
